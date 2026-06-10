@@ -46,24 +46,6 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
     };
   }, []);
 
-  // 2. Intercept and block react-pageflip's native click-to-flip
-  // This is required because its native click listener requires double-tap on some mobile OS
-  // and we want to handle taps manually via onPointerUp for instant response.
-  useEffect(() => {
-    const container = document.querySelector(".st-page-flip");
-    if (!container) return;
-
-    const preventNativeClickFlip = (e: Event) => {
-      e.stopPropagation();
-    };
-
-    // Capture phase listener stops the event before react-pageflip sees it
-    container.addEventListener("click", preventNativeClickFlip, true);
-    return () => {
-      container.removeEventListener("click", preventNativeClickFlip, true);
-    };
-  }, [isReady]);
-
   // Document callbacks
   const onDocumentLoadSuccess = ({ numPages: totalPages }: { numPages: number }) => {
     setNumPages(totalPages);
@@ -100,6 +82,9 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
 
   const handlePointerUp = (e: React.PointerEvent, index: number) => {
     if (zoom > 1.0) return; // Disable tap-to-flip while zoomed to allow dragging
+
+    // Let react-pageflip natively handle mouse clicks to avoid double-flipping on PC
+    if (e.pointerType === "mouse") return;
 
     const dx = e.clientX - pointerDownPos.current.x;
     const dy = e.clientY - pointerDownPos.current.y;
@@ -299,10 +284,6 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
                       data-density={isCover ? "hard" : "soft"}
                       onPointerDown={handlePointerDown}
                       onPointerUp={(e) => handlePointerUp(e, index)}
-                      onClickCapture={(e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                      }}
                     >
                       <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden">
                         <Page
