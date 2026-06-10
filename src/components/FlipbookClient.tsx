@@ -32,6 +32,9 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [panState, setPanState] = useState({ startX: 0, startY: 0, scrollLeft: 0, scrollTop: 0 });
 
+  // Tap-to-flip state for unified desktop/mobile handling
+  const pointerDownPos = useRef({ x: 0, y: 0 });
+
   // 1. Fullscreen sync listener
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -42,6 +45,24 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
+
+  // 2. Intercept and block react-pageflip's native click-to-flip
+  // This is required because its native click listener requires double-tap on some mobile OS
+  // and we want to handle taps manually via onPointerUp for instant response.
+  useEffect(() => {
+    const container = document.querySelector(".st-page-flip");
+    if (!container) return;
+
+    const preventNativeClickFlip = (e: Event) => {
+      e.stopPropagation();
+    };
+
+    // Capture phase listener stops the event before react-pageflip sees it
+    container.addEventListener("click", preventNativeClickFlip, true);
+    return () => {
+      container.removeEventListener("click", preventNativeClickFlip, true);
+    };
+  }, [isReady]);
 
   // Document callbacks
   const onDocumentLoadSuccess = ({ numPages: totalPages }: { numPages: number }) => {
@@ -72,9 +93,37 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
   const handleLastPage = () => getPageFlipInstance()?.flip(numPages - 1);
   const handleJumpToPage = (pageIdx: number) => getPageFlipInstance()?.flip(pageIdx);
 
+  // Custom unified tap-to-flip handlers
+  const handlePointerDown = (e: React.PointerEvent) => {
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+  };
 
+  const handlePointerUp = (e: React.PointerEvent, index: number) => {
+    if (zoom > 1.0) return; // Disable tap-to-flip while zoomed to allow dragging
 
-  // Zoom handlers
+    const dx = e.clientX - pointerDownPos.current.x;
+    const dy = e.clientY - pointerDownPos.current.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // If dragged more than 10px, it was a pan or swipe, not a tap
+    if (distance > 10) return;
+
+    const pageFlip = getPageFlipInstance();
+    if (!pageFlip) return;
+
+    const isCover = index === 0;
+    const isLast = index === numPages - 1;
+
+    if (isCover) {
+      pageFlip.flipNext();
+    } else if (isLast) {
+      pageFlip.flipPrev();
+    } else if (index % 2 === 1) {
+      pageFlip.flipPrev();
+    } else {
+      pageFlip.flipNext();
+    }
+  };  // Zoom handlers
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3.0));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.8));
   const handleResetZoom = () => setZoom(1.0);
@@ -245,8 +294,14 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
                   return (
                     <div
                       key={`page_${index + 1}`}
-                      className="page-wrapper overflow-hidden select-none"
+                      className="page-wrapper overflow-hidden select-none cursor-pointer"
                       data-density={isCover ? "hard" : "soft"}
+                      onPointerDown={handlePointerDown}
+                      onPointerUp={(e) => handlePointerUp(e, index)}
+                      onClickCapture={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      }}
                     >
                       <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden">
                         <Page
