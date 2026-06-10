@@ -72,27 +72,7 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
   const handleLastPage = () => getPageFlipInstance()?.flip(numPages - 1);
   const handleJumpToPage = (pageIdx: number) => getPageFlipInstance()?.flip(pageIdx);
 
-  // Click-to-flip handler (adds tap-to-turn support for tablets/mobiles and ease of use for desktops)
-  const handlePageClick = (index: number) => {
-    if (zoom > 1.0) return; // Disable click flipping during zoom so pan dragging works
-    const pageFlip = getPageFlipInstance();
-    if (!pageFlip) return;
 
-    const isCover = index === 0;
-    const isLast = index === numPages - 1;
-
-    if (isCover) {
-      pageFlip.flipNext();
-    } else if (isLast) {
-      pageFlip.flipPrev();
-    } else if (index % 2 === 1) {
-      // Left pages (odd index in 0-based page list)
-      pageFlip.flipPrev();
-    } else {
-      // Right pages (even index in 0-based page list)
-      pageFlip.flipNext();
-    }
-  };
 
   // Zoom handlers
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3.0));
@@ -246,6 +226,7 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
                 mobileScrollSupport={false}
                 useMouseEvents={true}
                 swipeDistance={30}
+                clickEventForward={true}
                 onFlip={(e) => {
                   setCurrentPage(e.data);
                   if (!isMuted) {
@@ -264,9 +245,8 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
                   return (
                     <div
                       key={`page_${index + 1}`}
-                      className="page-wrapper bg-slate-900 overflow-hidden select-none cursor-pointer"
+                      className="page-wrapper overflow-hidden select-none"
                       data-density={isCover ? "hard" : "soft"}
-                      onClick={() => handlePageClick(index)}
                     >
                       <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden">
                         <Page
