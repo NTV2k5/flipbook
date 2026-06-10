@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --background: #020617;
+  --foreground: #f8fafc;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Custom Flipbook Styles */
+.st-page-flip {
+  display: block;
+  position: relative;
+  margin: 0 auto;
+}
+
+.page-wrapper {
+  background-color: #0f172a; /* Slate 900 for background */
+}
+
+/* Ensure the canvas element scales correctly to fit the page size */
+.page-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover;
+  display: block;
+}
+
+/* Prevent layout shift or flashes of unstyled list items before initialization */
+.st-page-flip:not(.opacity-100) {
+  display: flex;
+  overflow: hidden;
+  max-height: 780px;
+}
+
+.st-page-flip:not(.opacity-100) > .page-wrapper {
+  flex-shrink: 0;
+  width: 0px;
+  height: 0px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.st-page-flip:not(.opacity-100) > .page-wrapper:first-child {
+  width: 550px;
+  height: 780px;
+  opacity: 1;
+}
+
+/* Hide standard text and annotation layers if rendered */
+.react-pdf__Page__textContent, 
+.react-pdf__Page__annotations {
+  display: none !important;
+}
+
+/* Custom Scrollbars for Zoom Scrolling Container */
+.overflow-auto::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.overflow-auto::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.overflow-auto::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.6);
+  border-radius: 9999px;
+}
+
+.overflow-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.8);
+}
+
