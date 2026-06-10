@@ -172,7 +172,6 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
   };
 
   const renderingProgress = numPages > 0 ? Math.round((renderedPagesCount / numPages) * 100) : 0;
-  // Sách sẵn sàng khi tất cả các trang đã render thành công và HTMLFlipBook đã init
   const isLoading = numPages === 0 || renderedPagesCount < numPages || !isReady;
 
   return (
