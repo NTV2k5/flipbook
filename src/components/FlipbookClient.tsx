@@ -2,10 +2,10 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { PageFlip } from "page-flip";
+import HTMLFlipBook from "react-pageflip";
 import { playPageFlipSound } from "@/utils/sound";
 import { FlipbookControls } from "./FlipbookControls";
-import { Loader2, AlertCircle, FileText } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -24,10 +24,9 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
   const [isReady, setIsReady] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Refs for DOM manipulation and PageFlip instance
+  // Refs for HTMLFlipBook and outer container
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const bookContainerRef = useRef<HTMLDivElement>(null);
-  const pageFlipInstance = useRef<PageFlip | null>(null);
+  const flipBookRef = useRef<any>(null);
 
   // Drag-to-pan state when zoomed
   const [isDragging, setIsDragging] = useState(false);
@@ -43,83 +42,6 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
     };
   }, []);
-
-  // 2. Cleanup PageFlip on unmount
-  useEffect(() => {
-    return () => {
-      if (pageFlipInstance.current) {
-        try {
-          pageFlipInstance.current.destroy();
-        } catch (e) {
-          console.warn("Error destroying page flip:", e);
-        }
-        pageFlipInstance.current = null;
-      }
-    };
-  }, []);
-
-  // 3. Initialize PageFlip after ALL PDF pages are rendered in the DOM
-  useEffect(() => {
-    if (numPages > 0 && renderedPagesCount === numPages && bookContainerRef.current) {
-      // Small timeout to guarantee DOM is painted
-      const initTimeout = setTimeout(() => {
-        if (!bookContainerRef.current) return;
-
-        // Clean up previous instance if any
-        if (pageFlipInstance.current) {
-          try {
-            pageFlipInstance.current.destroy();
-          } catch (e) {
-            console.warn("Cleanup error during re-init:", e);
-          }
-          pageFlipInstance.current = null;
-        }
-
-        try {
-          // Initialize StPageFlip
-          const flip = new PageFlip(bookContainerRef.current, {
-            width: 550, // base page width
-            height: 780, // base page height
-            size: "stretch",
-            minWidth: 310,
-            maxWidth: 1000,
-            minHeight: 440,
-            maxHeight: 1400,
-            maxShadowOpacity: 0.3,
-            showCover: true,
-            mobileScrollSupport: false,
-            useMouseEvents: true,
-            swipeDistance: 30,
-          });
-
-          // Load pages from the DOM
-          const pages = bookContainerRef.current.querySelectorAll(".page-wrapper");
-          if (pages.length > 0) {
-            flip.loadFromHTML(pages as any);
-            pageFlipInstance.current = flip;
-            setIsReady(true);
-            setCurrentPage(flip.getCurrentPageIndex());
-
-            // Bind events
-            flip.on("flip", (e) => {
-              const pageIdx = e.data as number;
-              setCurrentPage(pageIdx);
-              
-              // Play synthesized turn sound
-              if (!isMuted) {
-                playPageFlipSound();
-              }
-            });
-          }
-        } catch (err) {
-          console.error("Failed to initialize PageFlip:", err);
-          setError("Failed to initialize the flipbook animation engine.");
-        }
-      }, 150);
-
-      return () => clearTimeout(initTimeout);
-    }
-  }, [renderedPagesCount, numPages, isMuted]);
 
   // Document callbacks
   const onDocumentLoadSuccess = ({ numPages: totalPages }: { numPages: number }) => {
@@ -138,12 +60,39 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
     setRenderedPagesCount((prev) => prev + 1);
   };
 
+  // Helper to get raw pageflip instance
+  const getPageFlipInstance = () => {
+    return flipBookRef.current?.pageFlip();
+  };
+
   // Navigation handlers
-  const handlePrevPage = () => pageFlipInstance.current?.flipPrev();
-  const handleNextPage = () => pageFlipInstance.current?.flipNext();
-  const handleFirstPage = () => pageFlipInstance.current?.flip(0);
-  const handleLastPage = () => pageFlipInstance.current?.flip(numPages - 1);
-  const handleJumpToPage = (pageIdx: number) => pageFlipInstance.current?.flip(pageIdx);
+  const handlePrevPage = () => getPageFlipInstance()?.flipPrev();
+  const handleNextPage = () => getPageFlipInstance()?.flipNext();
+  const handleFirstPage = () => getPageFlipInstance()?.flip(0);
+  const handleLastPage = () => getPageFlipInstance()?.flip(numPages - 1);
+  const handleJumpToPage = (pageIdx: number) => getPageFlipInstance()?.flip(pageIdx);
+
+  // Click-to-flip handler (adds tap-to-turn support for tablets/mobiles and ease of use for desktops)
+  const handlePageClick = (index: number) => {
+    if (zoom > 1.0) return; // Disable click flipping during zoom so pan dragging works
+    const pageFlip = getPageFlipInstance();
+    if (!pageFlip) return;
+
+    const isCover = index === 0;
+    const isLast = index === numPages - 1;
+
+    if (isCover) {
+      pageFlip.flipNext();
+    } else if (isLast) {
+      pageFlip.flipPrev();
+    } else if (index % 2 === 1) {
+      // Left pages (odd index in 0-based page list)
+      pageFlip.flipPrev();
+    } else {
+      // Right pages (even index in 0-based page list)
+      pageFlip.flipNext();
+    }
+  };
 
   // Zoom handlers
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3.0));
@@ -171,7 +120,6 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
 
   // Download handler
   const handleDownload = () => {
-    // Open in new tab which triggers download/viewer
     const link = document.createElement("a");
     link.href = pdfUrl;
     link.target = "_blank";
@@ -209,6 +157,7 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
   };
 
   const renderingProgress = numPages > 0 ? Math.round((renderedPagesCount / numPages) * 100) : 0;
+  // Sách sẵn sàng khi tất cả các trang đã render thành công và HTMLFlipBook đã init
   const isLoading = numPages === 0 || renderedPagesCount < numPages || !isReady;
 
   return (
@@ -268,7 +217,7 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
         } ${isDragging ? "cursor-grabbing" : ""}`}
       >
         <div
-          className="w-full max-w-6xl flex justify-center transition-transform duration-300 ease-out"
+          className="w-full max-w-6xl flex justify-center transition-transform duration-300 ease-out animate-fade-in"
           style={{
             transform: `scale(${zoom})`,
             transformOrigin: "center center",
@@ -282,48 +231,71 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
             error={null}
             className="w-full flex items-center justify-center"
           >
-            {/* The page containers for PageFlip */}
-            <div
-              ref={bookContainerRef}
-              className={`st-page-flip shadow-2xl transition-opacity duration-500 ${
-                isReady ? "opacity-100" : "opacity-0 pointer-events-none"
-              }`}
-            >
-              {Array.from(new Array(numPages), (_, index) => {
-                const isCover = index === 0 || index === numPages - 1;
-                return (
-                  <div
-                    key={`page_${index + 1}`}
-                    className="page-wrapper bg-slate-900 overflow-hidden select-none"
-                    data-density={isCover ? "hard" : "soft"}
-                  >
-                    <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden">
-                      <Page
-                        pageNumber={index + 1}
-                        width={600} // High resolution render
-                        renderTextLayer={false}
-                        renderAnnotationLayer={false}
-                        onRenderSuccess={onPageRenderSuccess}
-                        loading={
-                          <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-2">
-                            <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
-                            <span className="text-xs font-mono">Page {index + 1}</span>
-                          </div>
-                        }
-                      />
-                      {/* Shadow Overlay for book depth */}
-                      <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/10 to-transparent pointer-events-none" />
-                      <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/10 to-transparent pointer-events-none" />
-                      
-                      {/* Page number indicators on the page itself */}
-                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-400 font-mono select-none">
-                        {index + 1}
+            {numPages > 0 && (
+              <HTMLFlipBook
+                ref={flipBookRef}
+                width={550} // Base single page width
+                height={780} // Base single page height
+                size="stretch"
+                minWidth={310}
+                maxWidth={1000}
+                minHeight={440}
+                maxHeight={1400}
+                maxShadowOpacity={0.3}
+                showCover={true}
+                mobileScrollSupport={false}
+                useMouseEvents={true}
+                swipeDistance={30}
+                onFlip={(e) => {
+                  setCurrentPage(e.data);
+                  if (!isMuted) {
+                    playPageFlipSound();
+                  }
+                }}
+                onInit={() => {
+                  setIsReady(true);
+                }}
+                className={`st-page-flip shadow-2xl transition-opacity duration-500 ${
+                  isReady ? "opacity-100" : "opacity-0 pointer-events-none"
+                }`}
+              >
+                {Array.from(new Array(numPages), (_, index) => {
+                  const isCover = index === 0 || index === numPages - 1;
+                  return (
+                    <div
+                      key={`page_${index + 1}`}
+                      className="page-wrapper bg-slate-900 overflow-hidden select-none cursor-pointer"
+                      data-density={isCover ? "hard" : "soft"}
+                      onClick={() => handlePageClick(index)}
+                    >
+                      <div className="relative w-full h-full bg-white flex items-center justify-center overflow-hidden">
+                        <Page
+                          pageNumber={index + 1}
+                          width={600} // High resolution canvas page render
+                          renderTextLayer={false}
+                          renderAnnotationLayer={false}
+                          onRenderSuccess={onPageRenderSuccess}
+                          loading={
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-900 text-slate-400 gap-2">
+                              <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+                              <span className="text-xs font-mono">Page {index + 1}</span>
+                            </div>
+                          }
+                        />
+                        {/* Shadow Overlay for book depth */}
+                        <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black/10 to-transparent pointer-events-none" />
+                        <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black/10 to-transparent pointer-events-none" />
+                        
+                        {/* Page number indicators on the page itself */}
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-semibold text-slate-400 font-mono select-none">
+                          {index + 1}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </HTMLFlipBook>
+            )}
           </Document>
         </div>
       </div>

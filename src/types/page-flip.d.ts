@@ -37,3 +37,26 @@ declare module "page-flip" {
     on(eventName: string, callback: (e: any) => void): void;
   }
 }
+
+declare module "react-pageflip" {
+  import * as React from "react";
+  import { PageFlipOptions, FlipEvent } from "page-flip";
+
+  export interface HTMLFlipBookProps extends Partial<PageFlipOptions> {
+    className?: string;
+    style?: React.CSSProperties;
+    onFlip?: (e: FlipEvent) => void;
+    onChangeState?: (e: any) => void;
+    onChangeOrientation?: (e: any) => void;
+    onInit?: (e: any) => void;
+    children: React.ReactNode;
+  }
+
+  // We export HTMLFlipBook as a forwardRef component or a class component
+  // react-pageflip uses React.forwardRef, exposing .pageFlip() on its ref.
+  const HTMLFlipBook: React.ForwardRefExoticComponent<
+    HTMLFlipBookProps & React.RefAttributes<any>
+  >;
+
+  export default HTMLFlipBook;
+}

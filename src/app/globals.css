@@ -19,15 +19,31 @@ body {
 }
 
 .page-wrapper {
-  background-color: #0f172a; /* Slate 900 for background */
+  background-color: #ffffff; /* White background to match the book pages */
 }
 
-/* Ensure the canvas element scales correctly to fit the page size */
-.page-wrapper canvas {
+/* Ensure the react-pdf page wrapper takes exactly 100% of the parent page-wrapper */
+.react-pdf__Page {
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover;
-  display: block;
+  min-width: 100% !important;
+  min-height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Ensure the canvas element scales correctly to fit the page size without overflow */
+.page-wrapper canvas,
+.react-pdf__Page__canvas {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
 }
 
 /* Prevent layout shift or flashes of unstyled list items before initialization */
