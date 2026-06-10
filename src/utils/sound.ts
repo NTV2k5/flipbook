@@ -40,7 +40,7 @@ export const playPageFlipSound = () => {
     gainNode.gain.setValueAtTime(0, ctx.currentTime);
     
     // Quick rise (attack) to mimic initial snap/lift
-    gainNode.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.06);
+    gainNode.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.06);
     // Exponential falloff (decay) to mimic the page landing
     gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
 

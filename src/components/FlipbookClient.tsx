@@ -263,12 +263,12 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUpOrLeave}
         onMouseLeave={handleMouseUpOrLeave}
-        className={`flex-1 w-full h-full flex items-center justify-center overflow-auto px-4 py-8 md:px-12 md:py-16 ${
-          zoom > 1.0 ? "cursor-grab" : ""
+        className={`flex-1 w-full h-full flex items-center justify-center px-4 py-8 md:px-12 md:py-16 ${
+          zoom > 1.0 ? "overflow-auto cursor-grab" : "overflow-hidden"
         } ${isDragging ? "cursor-grabbing" : ""}`}
       >
         <div
-          className="transition-transform duration-300 ease-out"
+          className="w-full max-w-6xl flex justify-center transition-transform duration-300 ease-out"
           style={{
             transform: `scale(${zoom})`,
             transformOrigin: "center center",
@@ -280,7 +280,7 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
             onLoadError={onDocumentLoadError}
             loading={null}
             error={null}
-            className="flex items-center justify-center"
+            className="w-full flex items-center justify-center"
           >
             {/* The page containers for PageFlip */}
             <div
