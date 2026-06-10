@@ -111,17 +111,18 @@ export default function FlipbookClient({ pdfUrl }: FlipbookClientProps) {
     const pageFlip = getPageFlipInstance();
     if (!pageFlip) return;
 
-    const isCover = index === 0;
-    const isLast = index === numPages - 1;
+    const container = document.querySelector(".st-page-flip");
+    if (!container) return;
 
-    if (isCover) {
+    const rect = container.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+
+    // Regardless of portrait/landscape or page index,
+    // tapping the right half of the visible book area goes next, left half goes prev
+    if (clickX > rect.width / 2) {
       pageFlip.flipNext();
-    } else if (isLast) {
-      pageFlip.flipPrev();
-    } else if (index % 2 === 1) {
-      pageFlip.flipPrev();
     } else {
-      pageFlip.flipNext();
+      pageFlip.flipPrev();
     }
   };  // Zoom handlers
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3.0));
